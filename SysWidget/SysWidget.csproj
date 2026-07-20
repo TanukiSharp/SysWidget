@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- DPI is declared in app.manifest for WPF (PerMonitorV2, needed for taskbar placement).
+         WinForms is used only for the tray NotifyIcon, never its message loop / SetHighDpiMode,
+         so the WinForms high-DPI manifest analyzer does not apply here. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>SysWidget</AssemblyName>
+    <RootNamespace>SysWidget</RootNamespace>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+</Project>
