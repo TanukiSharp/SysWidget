@@ -92,16 +92,36 @@
         </ContextMenu>
     </Window.ContextMenu>
 
-    <Grid>
+    <!-- Root carries a near-transparent fill with alpha = 1/255 (visually invisible).
+         With AllowsTransparency the window is a per-pixel-alpha layered window, and
+         pixels with alpha exactly 0 (a plain Transparent brush) are click-through at
+         the OS level — the mouse passes straight through the gaps between glyphs. A
+         minimal non-zero alpha keeps every pixel hit-testable, so hover detection and
+         drag work everywhere on the widget, not just over text and gauges. -->
+    <Grid x:Name="Root" Background="#01000000">
         <Border x:Name="BackgroundLayer" CornerRadius="8" Opacity="{Binding Opacity}">
             <Border.Style>
                 <Style TargetType="Border">
-                    <!-- Light theme default -->
-                    <Setter Property="Background" Value="#F4F4F4" />
+                    <!-- Transparent by default so only the components show; the drag
+                         zone gets a solid coloured fill only while hovered. -->
+                    <Setter Property="Background" Value="Transparent" />
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsDark}" Value="True">
+                        <!-- Hover, light theme -->
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsMouseOver, ElementName=Root}" Value="True" />
+                                <Condition Binding="{Binding IsDark}" Value="False" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Background" Value="#F4F4F4" />
+                        </MultiDataTrigger>
+                        <!-- Hover, dark theme -->
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsMouseOver, ElementName=Root}" Value="True" />
+                                <Condition Binding="{Binding IsDark}" Value="True" />
+                            </MultiDataTrigger.Conditions>
                             <Setter Property="Background" Value="#1E1E1E" />
-                        </DataTrigger>
+                        </MultiDataTrigger>
                     </Style.Triggers>
                 </Style>
             </Border.Style>
