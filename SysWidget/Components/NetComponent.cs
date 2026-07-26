@@ -10,6 +10,9 @@ namespace SysWidget.Components;
 /// </summary>
 public sealed class NetComponent : WidgetComponentBase
 {
+    /// <summary>Beyond this gap between samples (host tick is 1 s) the rate is meaningless.</summary>
+    private const double MaxIntervalSeconds = 10.0;
+
     private readonly Stopwatch _clock = new();
     private long _prevReceived;
     private long _prevSent;
@@ -36,11 +39,23 @@ public sealed class NetComponent : WidgetComponentBase
             return;
         }
 
-        double downBps = elapsed > 0 ? Math.Max(0, received - _prevReceived) / elapsed : 0.0;
-        double upBps = elapsed > 0 ? Math.Max(0, sent - _prevSent) / elapsed : 0.0;
+        long downDelta = received - _prevReceived;
+        long upDelta = sent - _prevSent;
 
         _prevReceived = received;
         _prevSent = sent;
+
+        // A counter going backwards means the set of adapters changed (one dropped out, or they
+        // were recreated on resume); a long gap means the machine was asleep. Neither yields a
+        // meaningful rate, so re-baseline on the current totals and show zero for this sample.
+        if (downDelta < 0 || upDelta < 0 || elapsed <= 0.0 || elapsed > MaxIntervalSeconds)
+        {
+            SetValue(new ComponentValue("Net", "↓0 ↑0", double.NaN));
+            return;
+        }
+
+        double downBps = downDelta / elapsed;
+        double upBps = upDelta / elapsed;
 
         SetValue(new ComponentValue("Net", $"↓{FormatRate(downBps)} ↑{FormatRate(upBps)}", double.NaN));
     }
@@ -50,7 +65,18 @@ public sealed class NetComponent : WidgetComponentBase
         long received = 0;
         long sent = 0;
 
-        foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
+        NetworkInterface[] nics;
+        try
+        {
+            nics = NetworkInterface.GetAllNetworkInterfaces();
+        }
+        catch (NetworkInformationException)
+        {
+            // The whole stack can be unavailable for a moment (e.g. right after resume from sleep).
+            return (received, sent);
+        }
+
+        foreach (NetworkInterface nic in nics)
         {
             if (nic.OperationalStatus != OperationalStatus.Up)
             {
@@ -62,9 +88,17 @@ public sealed class NetComponent : WidgetComponentBase
                 continue;
             }
 
-            IPInterfaceStatistics stats = nic.GetIPStatistics();
-            received += stats.BytesReceived;
-            sent += stats.BytesSent;
+            try
+            {
+                IPInterfaceStatistics stats = nic.GetIPStatistics();
+                received += stats.BytesReceived;
+                sent += stats.BytesSent;
+            }
+            catch (NetworkInformationException)
+            {
+                // The adapter vanished between enumeration and the stats read — adapters are torn
+                // down and recreated on resume from sleep/hibernation. Skip it for this sample.
+            }
         }
 
         return (received, sent);

@@ -56,7 +56,7 @@ public sealed class ComponentHost : IDisposable
         foreach (Entry entry in _entries)
         {
             entry.Component.Start();
-            entry.Component.Sample();
+            SafeSample(entry.Component);
             entry.ViewModel.Apply(entry.Component.Value);
         }
     }
@@ -72,7 +72,24 @@ public sealed class ComponentHost : IDisposable
         // handler marshals through _sync (a no-op hop when already on the UI thread).
         foreach (Entry entry in _entries)
         {
-            entry.Component.Sample();
+            SafeSample(entry.Component);
+        }
+    }
+
+    /// <summary>
+    /// Samples a component, swallowing failures. System sensors go transiently unavailable —
+    /// most notably around sleep/hibernation, where adapters and WMI providers are torn down and
+    /// recreated. This runs on the UI thread from the timer tick, so an escaping exception would
+    /// take the whole widget down; skipping one sample keeps the previous value on screen instead.
+    /// </summary>
+    private static void SafeSample(IWidgetComponent component)
+    {
+        try
+        {
+            component.Sample();
+        }
+        catch (Exception)
+        {
         }
     }
 
