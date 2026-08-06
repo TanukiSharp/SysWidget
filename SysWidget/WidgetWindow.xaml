@@ -88,6 +88,7 @@
             <MenuItem Header="Reset size" Command="{Binding ResetSizeCommand}" />
             <MenuItem Header="Reset position" Command="{Binding ResetPositionCommand}" />
             <Separator />
+            <MenuItem Header="About SysWidget…" Command="{Binding AboutCommand}" />
             <MenuItem Header="Quit" Command="{Binding QuitCommand}" />
         </ContextMenu>
     </Window.ContextMenu>

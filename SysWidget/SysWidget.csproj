@@ -17,6 +17,37 @@
     <AssemblyName>SysWidget</AssemblyName>
     <RootNamespace>SysWidget</RootNamespace>
     <Version>0.1.0</Version>
+    <!-- The SDK's built-in source-control integration otherwise appends the *full* 40-char commit
+         to InformationalVersion. ResolveGitCommit below composes that string itself (short hash,
+         plus a dirty marker), so switch the automatic suffix off rather than get both. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
+
+  <!-- Bakes the git commit into AssemblyInformationalVersion ("0.1.0+a1b2c3d4"), so the About
+       dialog and every crash log line identify the exact source the running binary came from.
+       A working tree with uncommitted changes is marked "+a1b2c3d4.dirty" — otherwise a local
+       build is indistinguishable from the commit it was based on. Outside a git checkout (or
+       with no git on PATH) the commit falls back to "unknown" instead of failing the build. -->
+  <Target Name="ResolveGitCommit" BeforeTargets="GetAssemblyVersion;CoreGenerateAssemblyInfo">
+    <Exec Command="git rev-parse --short=8 HEAD"
+          ConsoleToMSBuild="true" IgnoreExitCode="true"
+          StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitCommit" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitExitCode" />
+    </Exec>
+
+    <Exec Command="git status --porcelain --untracked-files=no"
+          ConsoleToMSBuild="true" IgnoreExitCode="true"
+          StandardOutputImportance="low" StandardErrorImportance="low"
+          Condition="'$(_GitExitCode)' == '0'">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitStatus" />
+    </Exec>
+
+    <PropertyGroup>
+      <_GitCommit Condition="'$(_GitExitCode)' != '0' or '$(_GitCommit)' == ''">unknown</_GitCommit>
+      <_GitDirty Condition="'$(_GitStatus)' != ''">.dirty</_GitDirty>
+      <InformationalVersion>$(Version)+$(_GitCommit.Trim())$(_GitDirty)</InformationalVersion>
+    </PropertyGroup>
+  </Target>
 
 </Project>

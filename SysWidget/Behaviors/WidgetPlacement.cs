@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using Microsoft.Win32;
 using SysWidget.Interop;
 
 namespace SysWidget.Behaviors;
@@ -78,14 +79,31 @@ public static class WidgetPlacement
 
         // Held for the lifetime of the hook so the delegate is not garbage-collected.
         private readonly NativeMethods.WinEventDelegate _foregroundCallback;
+
+        // SystemEvents exposes static events: the handlers must be held and unsubscribed
+        // explicitly, or the controller (and the window) outlives the widget.
+        private readonly PowerModeChangedEventHandler _powerModeHandler;
+        private readonly EventHandler _displaySettingsHandler;
+        private readonly DispatcherTimer _resettleTimer;
+
         private IntPtr _hwnd;
         private IntPtr _foregroundHook;
         private bool _initialized;
+        private bool _systemEventsAttached;
 
         public Controller(Window window)
         {
             _window = window;
             _foregroundCallback = OnForegroundChanged;
+            _powerModeHandler = OnPowerModeChanged;
+            _displaySettingsHandler = OnDisplaySettingsChanged;
+
+            _resettleTimer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
+            {
+                Interval = TimeSpan.FromSeconds(1),
+            };
+            _resettleTimer.Tick += OnResettleTick;
+
             _window.SourceInitialized += OnSourceInitialized;
             _window.PreviewMouseLeftButtonDown += OnMouseLeftButtonDown;
             _window.Closed += (_, _) => Detach();
@@ -93,6 +111,15 @@ public static class WidgetPlacement
 
         public void Detach()
         {
+            _resettleTimer.Stop();
+
+            if (_systemEventsAttached)
+            {
+                SystemEvents.PowerModeChanged -= _powerModeHandler;
+                SystemEvents.DisplaySettingsChanged -= _displaySettingsHandler;
+                _systemEventsAttached = false;
+            }
+
             if (_foregroundHook != IntPtr.Zero)
             {
                 NativeMethods.UnhookWinEvent(_foregroundHook);
@@ -115,9 +142,27 @@ public static class WidgetPlacement
             _initialized = true;
             ApplyPosition();
 
-            // Re-assert topmost whenever the foreground window changes. Opening the taskbar's
-            // overflow flyout (the "^" tray) or another topmost window can otherwise push the
-            // widget behind it; this brings it straight back on top. Event-driven, so no polling.
+            HookForeground();
+
+            SystemEvents.PowerModeChanged += _powerModeHandler;
+            SystemEvents.DisplaySettingsChanged += _displaySettingsHandler;
+            _systemEventsAttached = true;
+        }
+
+        /// <summary>
+        /// Installs the foreground hook that re-asserts topmost whenever the foreground window
+        /// changes. Opening the taskbar's overflow flyout (the "^" tray) or another topmost window
+        /// can otherwise push the widget behind it; this brings it straight back on top.
+        /// Event-driven, so no polling. Idempotent: any previous hook is released first.
+        /// </summary>
+        private void HookForeground()
+        {
+            if (_foregroundHook != IntPtr.Zero)
+            {
+                NativeMethods.UnhookWinEvent(_foregroundHook);
+                _foregroundHook = IntPtr.Zero;
+            }
+
             _foregroundHook = NativeMethods.SetWinEventHook(
                 NativeMethods.EVENT_SYSTEM_FOREGROUND, NativeMethods.EVENT_SYSTEM_FOREGROUND,
                 IntPtr.Zero, _foregroundCallback, 0, 0,
@@ -155,6 +200,75 @@ public static class WidgetPlacement
             const uint flags = NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE;
             NativeMethods.SetWindowPos(_hwnd, NativeMethods.HWND_NOTOPMOST, 0, 0, 0, 0, flags);
             NativeMethods.SetWindowPos(_hwnd, NativeMethods.HWND_TOPMOST, 0, 0, 0, 0, flags);
+        }
+
+        // --- Resume from sleep / display changes ---
+
+        private void OnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
+        {
+            if (e.Mode != PowerModes.Resume)
+            {
+                return;
+            }
+
+            ScheduleResettle();
+        }
+
+        private void OnDisplaySettingsChanged(object? sender, EventArgs e)
+        {
+            ScheduleResettle();
+        }
+
+        /// <summary>
+        /// Queues a single re-settle shortly after the system stops moving. Both events above are
+        /// raised on the <see cref="SystemEvents"/> private thread, and a resume produces a burst of
+        /// them while the shell is still rebuilding monitors and z-order — so hop to the UI thread
+        /// and restart a one-shot timer, which coalesces the burst into one pass on settled state.
+        /// </summary>
+        private void ScheduleResettle()
+        {
+            _window.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                _resettleTimer.Stop();
+                _resettleTimer.Start();
+            }));
+        }
+
+        private void OnResettleTick(object? sender, EventArgs e)
+        {
+            _resettleTimer.Stop();
+
+            if (!_initialized || _hwnd == IntPtr.Zero)
+            {
+                return;
+            }
+
+            // The hook is owned by the session's desktop, which can be rebuilt across a suspend;
+            // re-installing it is cheap and idempotent, and a dropped hook would silently cost the
+            // widget its topmost recovery for the rest of the session.
+            HookForeground();
+            ClampIntoView();
+            ReassertTopmost();
+        }
+
+        /// <summary>
+        /// Brings the window back on screen if its saved spot no longer exists — a monitor
+        /// unplugged (or a resolution change) while asleep leaves it parked in dead space, which
+        /// looks exactly like the widget having disappeared.
+        /// </summary>
+        private void ClampIntoView()
+        {
+            Rect virtualScreen = new(
+                SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+
+            Rect bounds = new(_window.Left, _window.Top, _window.ActualWidth, _window.ActualHeight);
+            if (virtualScreen.IntersectsWith(bounds))
+            {
+                return;
+            }
+
+            ResetToDefault();
         }
 
         private void ApplyPosition()

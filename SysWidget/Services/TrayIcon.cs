@@ -30,6 +30,7 @@ public sealed class TrayIcon : IDisposable
 
         Forms.ToolStripMenuItem resetSizeItem = new("Reset size", null, (_, _) => _vm.ResetSizeCommand.Execute(null));
         Forms.ToolStripMenuItem resetPositionItem = new("Reset position", null, (_, _) => _vm.ResetPositionCommand.Execute(null));
+        Forms.ToolStripMenuItem aboutItem = new("About SysWidget…", null, (_, _) => _vm.AboutCommand.Execute(null));
         Forms.ToolStripMenuItem quitItem = new("Quit", null, (_, _) => _vm.QuitCommand.Execute(null));
 
         foreach (ComponentToggleViewModel toggle in _vm.AvailableComponents)
@@ -52,6 +53,7 @@ public sealed class TrayIcon : IDisposable
         menu.Items.Add(resetSizeItem);
         menu.Items.Add(resetPositionItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add(aboutItem);
         menu.Items.Add(quitItem);
 
         menu.Opening += (_, _) => RefreshChecks();

@@ -14,10 +14,14 @@ public partial class App : System.Windows.Application
     private ComponentHost? _host;
     private TrayIcon? _tray;
     private WidgetWindow? _window;
+    private AboutWindow? _about;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // First thing: from here on, anything that escapes lands in %LocalAppData%\SysWidget\crash.log.
+        CrashLog.Install(this);
 
         _instanceMutex = new Mutex(initiallyOwned: true, InstanceMutexName, out bool createdNew);
         if (!createdNew)
@@ -43,7 +47,7 @@ public partial class App : System.Windows.Application
             ?? throw new InvalidOperationException("No synchronization context on the UI thread.");
 
         _host = new ComponentHost(sync);
-        WidgetViewModel vm = new(settings, _host, Shutdown);
+        WidgetViewModel vm = new(settings, _host, Shutdown, ShowAbout);
 
         _window = new WidgetWindow { DataContext = vm };
         _window.Show();
@@ -53,8 +57,26 @@ public partial class App : System.Windows.Application
         vm.Start();
     }
 
+    /// <summary>
+    /// Shows the About dialog, reusing the existing one if it is already open — the tray menu is
+    /// always reachable, so a plain Show() would stack duplicates.
+    /// </summary>
+    private void ShowAbout()
+    {
+        if (_about is null)
+        {
+            _about = new AboutWindow();
+            _about.Closed += (_, _) => _about = null;
+            _about.Show();
+            return;
+        }
+
+        _about.Activate();
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
+        _about?.Close();
         _tray?.Dispose();
         _host?.Dispose();
         _window?.Close();

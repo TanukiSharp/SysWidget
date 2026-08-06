@@ -16,14 +16,16 @@ public sealed class WidgetViewModel : ViewModelBase
     private readonly AppSettings _settings;
     private readonly ComponentHost _host;
     private readonly Action _shutdown;
+    private readonly Action _showAbout;
     private int _sizeResetToken;
     private int _positionResetToken;
 
-    public WidgetViewModel(AppSettings settings, ComponentHost host, Action shutdown)
+    public WidgetViewModel(AppSettings settings, ComponentHost host, Action shutdown, Action showAbout)
     {
         _settings = settings;
         _host = host;
         _shutdown = shutdown;
+        _showAbout = showAbout;
 
         _host.Configure(settings.ActiveComponents);
 
@@ -39,6 +41,7 @@ public sealed class WidgetViewModel : ViewModelBase
         ToggleThemeCommand = new RelayCommand(() => Theme = IsDark ? WidgetTheme.Light : WidgetTheme.Dark);
         ResetSizeCommand = new RelayCommand(() => SizeResetToken++);
         ResetPositionCommand = new RelayCommand(() => PositionResetToken++);
+        AboutCommand = new RelayCommand(() => _showAbout());
         QuitCommand = new RelayCommand(() => _shutdown());
     }
 
@@ -166,6 +169,12 @@ public sealed class WidgetViewModel : ViewModelBase
     public ICommand ResetSizeCommand { get; }
 
     public ICommand ResetPositionCommand { get; }
+
+    /// <summary>
+    /// Opens the About dialog. Showing a window is the view's business, not the view model's, so
+    /// this is an injected callback — same arrangement as <see cref="QuitCommand"/>.
+    /// </summary>
+    public ICommand AboutCommand { get; }
 
     public ICommand QuitCommand { get; }
 
