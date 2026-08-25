@@ -85,6 +85,8 @@
                       Command="{Binding ToggleThemeCommand}" />
             <MenuItem Header="Start with Windows" IsCheckable="True"
                       IsChecked="{Binding StartWithWindows, Mode=TwoWay}" />
+            <MenuItem Header="Desktop switch overlay" IsCheckable="True"
+                      IsChecked="{Binding ShowDesktopSwitch, Mode=TwoWay}" />
             <MenuItem Header="Reset size" Command="{Binding ResetSizeCommand}" />
             <MenuItem Header="Reset position" Command="{Binding ResetPositionCommand}" />
             <Separator />

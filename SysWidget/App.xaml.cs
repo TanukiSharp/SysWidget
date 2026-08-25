@@ -14,6 +14,7 @@ public partial class App : System.Windows.Application
     private ComponentHost? _host;
     private TrayIcon? _tray;
     private WidgetWindow? _window;
+    private DesktopSwitchOverlay? _switchOverlay;
     private AboutWindow? _about;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -46,6 +47,11 @@ public partial class App : System.Windows.Application
         SynchronizationContext sync = SynchronizationContext.Current
             ?? throw new InvalidOperationException("No synchronization context on the UI thread.");
 
+        // Started before the components: the "vdesk" component is only a view over the watcher,
+        // and the switch overlay must keep working even when that component is toggled off.
+        VirtualDesktopWatcher.Start();
+        _switchOverlay = new DesktopSwitchOverlay(settings, sync);
+
         _host = new ComponentHost(sync);
         WidgetViewModel vm = new(settings, _host, Shutdown, ShowAbout);
 
@@ -77,6 +83,8 @@ public partial class App : System.Windows.Application
     protected override void OnExit(ExitEventArgs e)
     {
         _about?.Close();
+        _switchOverlay?.Dispose();
+        VirtualDesktopWatcher.Stop();
         _tray?.Dispose();
         _host?.Dispose();
         _window?.Close();

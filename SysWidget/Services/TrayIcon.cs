@@ -17,6 +17,7 @@ public sealed class TrayIcon : IDisposable
     private readonly Forms.ToolStripMenuItem _componentsItem;
     private readonly Forms.ToolStripMenuItem _themeItem;
     private readonly Forms.ToolStripMenuItem _startupItem;
+    private readonly Forms.ToolStripMenuItem _desktopSwitchItem;
 
     public TrayIcon(WidgetViewModel vm)
     {
@@ -27,6 +28,7 @@ public sealed class TrayIcon : IDisposable
         _componentsItem = new Forms.ToolStripMenuItem("Components");
         _themeItem = new Forms.ToolStripMenuItem("Dark theme", null, (_, _) => _vm.ToggleThemeCommand.Execute(null));
         _startupItem = new Forms.ToolStripMenuItem("Start with Windows", null, (_, _) => _vm.StartWithWindows = !_vm.StartWithWindows);
+        _desktopSwitchItem = new Forms.ToolStripMenuItem("Desktop switch overlay", null, (_, _) => _vm.ShowDesktopSwitch = !_vm.ShowDesktopSwitch);
 
         Forms.ToolStripMenuItem resetSizeItem = new("Reset size", null, (_, _) => _vm.ResetSizeCommand.Execute(null));
         Forms.ToolStripMenuItem resetPositionItem = new("Reset position", null, (_, _) => _vm.ResetPositionCommand.Execute(null));
@@ -50,6 +52,7 @@ public sealed class TrayIcon : IDisposable
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(_themeItem);
         menu.Items.Add(_startupItem);
+        menu.Items.Add(_desktopSwitchItem);
         menu.Items.Add(resetSizeItem);
         menu.Items.Add(resetPositionItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -71,6 +74,7 @@ public sealed class TrayIcon : IDisposable
     {
         _themeItem.Checked = _vm.IsDark;
         _startupItem.Checked = _vm.StartWithWindows;
+        _desktopSwitchItem.Checked = _vm.ShowDesktopSwitch;
 
         foreach (Forms.ToolStripItem item in _componentsItem.DropDownItems)
         {

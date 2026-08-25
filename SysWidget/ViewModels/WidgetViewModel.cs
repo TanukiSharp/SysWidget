@@ -164,6 +164,23 @@ public sealed class WidgetViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Whether the big "1 → 2" overlay is shown when Windows switches virtual desktop.</summary>
+    public bool ShowDesktopSwitch
+    {
+        get { return _settings.ShowDesktopSwitch; }
+        set
+        {
+            if (_settings.ShowDesktopSwitch == value)
+            {
+                return;
+            }
+
+            _settings.ShowDesktopSwitch = value;
+            RaisePropertyChanged();
+            Save();
+        }
+    }
+
     public ICommand ToggleThemeCommand { get; }
 
     public ICommand ResetSizeCommand { get; }

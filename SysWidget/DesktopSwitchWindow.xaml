@@ -1,0 +1,34 @@
+<Window x:Class="SysWidget.DesktopSwitchWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SysWidget desktop switch"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="Manual"
+        Topmost="True"
+        Focusable="False"
+        IsHitTestVisible="False"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Ideal"
+        FontFamily="Segoe UI">
+
+    <!-- The window hugs the pill (SizeToContent) instead of covering the monitor: the
+         code-behind then centres the measured window rect on its monitor, which is immune to the
+         DIP-vs-pixel mismatch a mixed-DPI setup creates. Everything outside the pill's rounded
+         corners stays fully transparent, and WS_EX_TRANSPARENT (set in the code-behind) keeps the
+         whole thing click-through. -->
+    <Grid Background="Transparent">
+        <Viewbox x:Name="Scaler" Stretch="Uniform"
+                 HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border x:Name="Pill" CornerRadius="24" Padding="48,16" Opacity="0">
+                <TextBlock x:Name="Caption" FontSize="100" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+        </Viewbox>
+    </Grid>
+</Window>
