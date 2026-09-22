@@ -33,6 +33,12 @@ public sealed class AppSettings
     /// <summary>Overlay text height as a fraction of min(monitor width, monitor height), in [0.05, 0.9].</summary>
     public double DesktopSwitchSizePercent { get; set; } = 0.30;
 
+    /// <summary>
+    /// Seconds of quiet required before the banner appears, in [0, 2]. Every switch restarts the
+    /// wait, so a burst of switches yields one banner showing the whole trip.
+    /// </summary>
+    public double DesktopSwitchDelaySeconds { get; set; } = 0.5;
+
     /// <summary>Seconds the overlay stays fully visible before fading, in [0, 10].</summary>
     public double DesktopSwitchHoldSeconds { get; set; } = 1.0;
 
@@ -51,6 +57,7 @@ public sealed class AppSettings
             StartWithWindows = StartWithWindows,
             ShowDesktopSwitch = ShowDesktopSwitch,
             DesktopSwitchSizePercent = DesktopSwitchSizePercent,
+            DesktopSwitchDelaySeconds = DesktopSwitchDelaySeconds,
             DesktopSwitchHoldSeconds = DesktopSwitchHoldSeconds,
             DesktopSwitchFadeSeconds = DesktopSwitchFadeSeconds,
         };
