@@ -23,27 +23,13 @@ public sealed class DesktopSwitchOverlay : IDisposable
         VirtualDesktopWatcher.Switched += _handler;
     }
 
-    /// <summary>
-    /// Formats a move so the arrow points at the destination while the lower index stays on the
-    /// left: 1 → 2 going forward, 3 ← 4 going back.
-    /// </summary>
-    public static string Format(int from, int to)
-    {
-        if (to > from)
-        {
-            return $"{from} → {to}";
-        }
-
-        return $"{to} ← {from}";
-    }
-
     private void OnSwitched(DesktopSwitch move)
     {
         // Raised on the watcher thread; everything below touches WPF.
-        _sync.Post(_ => Show(move), null);
+        _sync.Post(_ => Show(move.From, move.To), null);
     }
 
-    private void Show(DesktopSwitch move)
+    private void Show(int from, int to)
     {
         try
         {
@@ -55,7 +41,6 @@ public sealed class DesktopSwitchOverlay : IDisposable
             // Coalesce: a rapid back-and-forth should replace the banner, not stack banners.
             CloseOpen();
 
-            string text = Format(move.From, move.To);
             bool isDark = _settings.Theme == WidgetTheme.Dark;
             TimeSpan hold = TimeSpan.FromSeconds(_settings.DesktopSwitchHoldSeconds);
             TimeSpan fade = TimeSpan.FromSeconds(_settings.DesktopSwitchFadeSeconds);
@@ -64,7 +49,7 @@ public sealed class DesktopSwitchOverlay : IDisposable
             foreach (Forms.Screen screen in Forms.Screen.AllScreens)
             {
                 DesktopSwitchWindow window = new(
-                    text, screen, isDark, _settings.DesktopSwitchSizePercent, hold, fade, desktopId);
+                    from, to, screen, isDark, _settings.DesktopSwitchSizePercent, hold, fade, desktopId);
 
                 window.Closed += (s, _) =>
                 {

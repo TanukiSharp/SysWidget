@@ -25,9 +25,15 @@
     <Grid Background="Transparent">
         <Viewbox x:Name="Scaler" Stretch="Uniform"
                  HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Border x:Name="Pill" CornerRadius="24" Padding="48,16" Opacity="0">
-                <TextBlock x:Name="Caption" FontSize="100" FontWeight="SemiBold"
-                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <!-- Three text blocks rather than one with inline runs: the arrow's gradient brush
+                 then maps to the arrow's own bounds, not to the whole caption's. -->
+            <Border x:Name="Pill" CornerRadius="24" Padding="48,16" Opacity="0"
+                    TextElement.FontSize="100" TextElement.FontWeight="SemiBold">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="LeftNumber" />
+                    <TextBlock x:Name="Arrow" Margin="20,0" />
+                    <TextBlock x:Name="RightNumber" />
+                </StackPanel>
             </Border>
         </Viewbox>
     </Grid>

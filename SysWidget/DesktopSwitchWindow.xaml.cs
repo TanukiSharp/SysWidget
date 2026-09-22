@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media.Animation;
@@ -9,7 +10,7 @@ using Media = System.Windows.Media;
 namespace SysWidget;
 
 /// <summary>
-/// The big "1 → 2" banner shown for one virtual desktop switch, on one monitor. One instance is
+/// The big "1 → 2" banner shown for one virtual desktop move, on one monitor. One instance is
 /// created per monitor per switch and closes itself when the fade completes — a window is bound to
 /// the desktop that was current when it was created, so a pooled, re-shown window would stay
 /// stranded on the desktop it was born on.
@@ -18,10 +19,18 @@ public partial class DesktopSwitchWindow : Window
 {
     private const int MaxAdjustPasses = 4;
 
+    private static readonly Media.Color DarkTextColor = Media.Color.FromRgb(0xF0, 0xF0, 0xF0);
+    private static readonly Media.Color LightTextColor = Media.Color.FromRgb(0x20, 0x20, 0x20);
+
+    // #007ACC lightened — same hue and saturation, lightness 40% -> 70% — so the destination
+    // still reads as blue against the pill without going dim.
+    private static readonly Media.Color DestinationColor = Media.Color.FromRgb(0x66, 0xC3, 0xFF);
+
     private static readonly Media.Brush DarkPill = Frozen(Media.Color.FromArgb(0x8C, 0x1E, 0x1E, 0x1E));
     private static readonly Media.Brush LightPill = Frozen(Media.Color.FromArgb(0x8C, 0xF4, 0xF4, 0xF4));
-    private static readonly Media.Brush DarkText = Frozen(Media.Color.FromRgb(0xF0, 0xF0, 0xF0));
-    private static readonly Media.Brush LightText = Frozen(Media.Color.FromRgb(0x20, 0x20, 0x20));
+    private static readonly Media.Brush DarkText = Frozen(DarkTextColor);
+    private static readonly Media.Brush LightText = Frozen(LightTextColor);
+    private static readonly Media.Brush DestinationText = Frozen(DestinationColor);
 
     private readonly Forms.Screen _screen;
     private readonly double _sizePercent;
@@ -31,13 +40,14 @@ public partial class DesktopSwitchWindow : Window
     private int _pass;
     private bool _closing;
 
-    /// <param name="text">Already formatted transition, e.g. "1 → 2".</param>
+    /// <param name="from">Desktop left behind.</param>
+    /// <param name="to">Desktop arrived at.</param>
     /// <param name="screen">Monitor to centre on, in physical pixels.</param>
     /// <param name="isDark">Widget theme, so the banner matches the widget.</param>
     /// <param name="sizePercent">Banner height as a fraction of the monitor's smaller side.</param>
     /// <param name="desktopId">Desktop the banner belongs to; used to correct a mis-parented window.</param>
     public DesktopSwitchWindow(
-        string text, Forms.Screen screen, bool isDark, double sizePercent,
+        int from, int to, Forms.Screen screen, bool isDark, double sizePercent,
         TimeSpan hold, TimeSpan fade, Guid desktopId)
     {
         InitializeComponent();
@@ -48,13 +58,60 @@ public partial class DesktopSwitchWindow : Window
         _fade = fade;
         _desktopId = desktopId;
 
-        Caption.Text = text;
         Pill.Background = isDark ? DarkPill : LightPill;
-        Caption.Foreground = isDark ? DarkText : LightText;
+        WriteCaption(from, to, isDark);
 
         SourceInitialized += OnSourceInitializedCore;
         Loaded += OnLoadedCore;
         ContentRendered += OnContentRenderedCore;
+    }
+
+    /// <summary>
+    /// Lays the move out spatially: the lower index stays on the left and the arrow points at the
+    /// destination, so 1 → 2 going forward and 3 ← 4 going back. The destination is the one number
+    /// that matters, so it alone is coloured, and the arrow fades from the origin's colour to the
+    /// destination's — which makes the direction readable even before the glyph registers.
+    /// </summary>
+    private void WriteCaption(int from, int to, bool isDark)
+    {
+        Media.Color originColor = isDark ? DarkTextColor : LightTextColor;
+        Media.Brush originBrush = isDark ? DarkText : LightText;
+
+        string origin = from.ToString(CultureInfo.InvariantCulture);
+        string destination = to.ToString(CultureInfo.InvariantCulture);
+
+        if (to > from)
+        {
+            LeftNumber.Text = origin;
+            LeftNumber.Foreground = originBrush;
+            RightNumber.Text = destination;
+            RightNumber.Foreground = DestinationText;
+            Arrow.Text = "→";
+            Arrow.Foreground = Gradient(originColor, DestinationColor);
+            return;
+        }
+
+        LeftNumber.Text = destination;
+        LeftNumber.Foreground = DestinationText;
+        RightNumber.Text = origin;
+        RightNumber.Foreground = originBrush;
+        Arrow.Text = "←";
+        Arrow.Foreground = Gradient(DestinationColor, originColor);
+    }
+
+    /// <summary>A left-to-right gradient across whichever element it is applied to.</summary>
+    private static Media.Brush Gradient(Media.Color left, Media.Color right)
+    {
+        Media.LinearGradientBrush brush = new()
+        {
+            StartPoint = new System.Windows.Point(0.0, 0.5),
+            EndPoint = new System.Windows.Point(1.0, 0.5),
+        };
+
+        brush.GradientStops.Add(new Media.GradientStop(left, 0.0));
+        brush.GradientStops.Add(new Media.GradientStop(right, 1.0));
+        brush.Freeze();
+        return brush;
     }
 
     private void OnSourceInitializedCore(object? sender, EventArgs e)
